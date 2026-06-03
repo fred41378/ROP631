@@ -11,7 +11,7 @@ include("TR_1D_fr.jl")
 #
 # Quelques trucs julia pour ne spécifier le nom du test une seule fois...
 
-name = "Dus2_3"
+name = "Duscube"
 println(" Exemple avec le test ",name)
 symb = Symbol(name)
 file = string(name, ".jl")
@@ -24,7 +24,7 @@ nlp = MathOptNLPModel(f())
 h = LineModel(nlp, [0.0], [1.0]);
 
 # Enlever le maxiter = 1 lorsque le TR_1D fonctionnera
-(t, f, absg, iter, optimal, tired, status) = TR_1D(h, 2.0,  maxiter = 1, verbose = true)
+(t, f, absg, iter, optimal, tired, status) = TR_1D(h, 2.0, verbose = true)
 
 println(" ------- ")
 @printf("Résultat du test: \n t*       =  %9.3e\n f(t*)    =  %9.3e\n |f'(t*)| =  %9.3e\n",t,f,absg)
