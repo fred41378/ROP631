@@ -2,7 +2,7 @@
 #
 # La fonction h est approchée par un polynôme de Taylor de degré 2, q.
 # Si q approche bien h, alors on se déplace au minimum de q.
-# Autremet, on réduit la taille de la région (Δ) jusqu'à ce que le minimum
+# Autrement, on réduit la taille de la région (Δ) jusqu'à ce que le minimum
 # de q soit une bonne approximation de h.
 # q(d) = h(t) + h'(t) * d + 0.5 * h''(t) * d² 
 #
@@ -10,7 +10,7 @@
 # eps1 :: Float64. lorsque r est sous cette valeur, on conserve le même x
 #                  et réduit Δ
 #                  Seuil pour determiner si q est une mauvaise approximation de h
-# eps2 :: Float64. lorsque r est sous cette valeur, on sugmente Δ
+# eps2 :: Float64. lorsque r est sous cette valeur, on augmente Δ
 #                  Seuil pour determiner si q est une très bonne approximation de h
 # red :: Float64.  taux de réduction de Δ
 # aug :: Float64.  taux d'augmentation de Δ
@@ -30,11 +30,8 @@ function TR_1D(h :: LineModel,
     t = t₀; iter = 0; # Point de départ et compteur d'itérations
     fₖ = obj(h, t)
     gₖ = grad(h, t)
-    
     H = hess(h, t)
     
-    q(d) = fₖ + gₖ * d + 0.5 * H * d^2
-
     verbose &&
         @printf(" iter  t          gₖ         Δ         pred      ared\n")
     verbose && @printf(" %4d %9.2e  %9.2e  %9.2e \n", iter, t, gₖ, Δ)
@@ -42,56 +39,92 @@ function TR_1D(h :: LineModel,
     # On boucle jusqu'a satisfaire la tolérance prescrite ou bien dépasser le nombre
     # maximum d'itérations
     while ((abs(gₖ) > tol) && (iter < maxiter))
-        # Ce code bidon doit être remplacé par l'algorithme de région de confiance.
-        # pred = 12.34
-        # ared = 24.68
-        # iter += 1
-        # verbose && @printf(" %4d %9.2e  %9.2e  %9.2e %9.2e %9.2e\n",
-        #                    iter, t, gₖ, Δ, pred, ared)
-
-        # choisir le bord de la fonction
-        if q(Δ) < q(-Δ)
-            dr = Δ
-        else
-            dr = -Δ
-        end
-
-        # calculer le pas de Newton
-        dn = -gₖ / H
-
-        # Si le pas de Newton est dans la région de confiance et améliore la fonction, on le choisit
-        if (abs(dn) < Δ) && (q(dn) < q(0))
-            dr = dn
-        end 
-
-        ared = fₖ - obj(h, t + dr)
-        pred = q(0) - q(dr)
-
-        r = ared / pred
-
-        if r < eps1
-            Δ *= red
+        
+        q(d) = fₖ + gₖ * d + 0.5 * H * d^2
+        if (q(Δ) < q(-Δ)) 
+            d_R = Δ 
         else 
-            t += dr
-            fₖ = obj(h, t)  
+            d_R = -Δ
+        end
+        d_N = - gₖ/H
+        if (abs(d_N) < Δ && q(d_R) > q(d_N))
+            d_R = d_N
+        end
+        ared = fₖ - obj(h, t+d_R)
+        pred = q(0) - q(d_R)
+        r = ared/pred
+        if (r < eps1)
+            Δ = red * Δ
+        else
+            t = t + d_R
+            #recalculer les valeurs de la fonction objectif et dérivées
+            fₖ = obj(h, t)
             gₖ = grad(h, t)
             H = hess(h, t)
-
-            q = (d) -> fₖ + gₖ * d + 0.5 * H * d^2
-
-            if r > eps2
-                Δ *= aug
-            end
         end
+        if (r > eps2)
+            Δ = aug * Δ
+        end
+
 
         iter += 1
         verbose && @printf(" %4d %9.2e  %9.2e  %9.2e %9.2e %9.2e\n",
                            iter, t, gₖ, Δ, pred, ared)
-
     end
 
-    optimal = abs(gₖ) <= tol
-    tired = iter >= maxiter
-    status = optimal ? :first_order : :max_iter
+    #on stocke la solution dans une nouvelle variable et on repart les itérations à partir du t initial
+    t_bar = t
+    t = t₀
+    iter = 0
+    fₖ = obj(h, t)
+    gₖ = grad(h, t)
+    H = hess(h, t)
+    erreur = t - t_bar
+    Δ = 1.0
+    pred = ared = NaN
+    
+    verbose &&
+        @printf(" iter  t          gₖ         Δ         pred      ared      erreur\n")
+    verbose && @printf(" %4d %9.2e  %9.2e  %9.2e %9.2e %9.2e %9.2e \n", iter, t, gₖ, Δ, pred, ared, erreur)
+    
+
+    #on refait la boucle ayant en main la solution t pour calculer l'erreur à chaque itération
+    while ((abs(gₖ) > tol) && (iter < maxiter))
+        
+        q(d) = fₖ + gₖ * d + 0.5 * H * d^2
+        if (q(Δ) < q(-Δ)) 
+            d_R = Δ 
+        else 
+            d_R = -Δ
+        end
+        d_N = - gₖ/H
+        if (abs(d_N) < Δ && q(d_R) > q(d_N))
+            d_R = d_N
+        end
+        ared = fₖ - obj(h, t+d_R)
+        pred = q(0) - q(d_R)
+        r = ared/pred
+        if (r < eps1)
+            Δ = red * Δ
+        else
+            t = t + d_R
+            fₖ = obj(h, t)
+            gₖ = grad(h, t)
+            H = hess(h, t)
+        end
+        if (r > eps2)
+            Δ = aug * Δ
+        end
+
+        erreur = t - t_bar
+
+        iter += 1
+        verbose && @printf(" %4d %9.2e  %9.2e  %9.2e %9.2e %9.2e %9.2e\n",
+                           iter, t, gₖ, Δ, pred, ared, erreur)
+    end
+
+    optimal = ifelse(abs(gₖ) <= tol, true, false)
+    tired = ifelse(iter >= maxiter, true, false)
+    status = ifelse(optimal && !tired, :Optimal, :NotSolved)
     return (t, fₖ, abs(gₖ), iter, optimal, tired, status)
 end
