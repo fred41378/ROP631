@@ -28,12 +28,15 @@ function descente_armijo(f, ∇f, x0, tow0=0.5)
         push!(res_g, norm(∇f(x)))
     end
     return res_x, res_f, res_g
-end
+end 
 
 
 
 function get_alpha(δ, p, ∆)
     a = dot(p, p)
+    if a < 1e-28
+        return Inf
+    end
     b = 2 * dot(δ, p)
     c = dot(δ, δ) - ∆^2
     disc = b^2 - 4*a*c
@@ -96,6 +99,11 @@ function newton_region_confiance(f, ∇f, ∇²f, x0, ∆0=1.0; ϵ=1e-10, ξ=1.0
         c = ∇f(x)
         Q = ∇²f(x)
         dr = region_confiance(c, Q, ∆)
+
+        if norm(dr) < 1e-14 || isnan(dr[1])
+            break
+        end
+
         q_dr = 0.5 * dot(dr, Q*dr) + dot(c, dr)
         r = (f(x) - f(x .+ dr)) / (0 - q_dr)
         if r < 0.25
