@@ -72,7 +72,7 @@ function main()
             -(q' * d)[1] /
             (d' * Q * d)[1]
 
-        println("alpha_", k, " = ", theta)
+        println("theta_", k, " = ", theta)
 
         # Mise à jour
 
@@ -94,6 +94,7 @@ function main()
 
             x = xnew
             q = qnew
+            
 
             println()
             println("Convergence atteinte.")
@@ -101,8 +102,8 @@ function main()
         end
 
         beta =
-            (qnew' * qnew)[1] /
-            (q' * q)[1]
+            (qnew' * Q * d)[1] /
+            (d' * Q * d)[1]
 
         println("beta_", k, " = ", beta)
 
